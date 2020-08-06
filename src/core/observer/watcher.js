@@ -61,6 +61,7 @@ export default class Watcher {
       this.lazy = !!options.lazy
       this.sync = !!options.sync
       this.before = options.before
+      if(options.fixed) this.noRe = false // fixed dependencies, no retracking; false = untracked, true = tracked
     } else {
       this.deep = this.user = this.lazy = this.sync = false
     }
@@ -89,35 +90,52 @@ export default class Watcher {
           vm
         )
       }
+      else{
+        if(expOrFn.indexOf(".") < 0) this.noRe = false // fixed dependency
+      }
     }
-    this.value = this.lazy
-      ? undefined
-      : this.get()
+    if(!this.lazy){
+      this.value = this.get()
+      if(this.noRe===false) this.noRe = true
+    }
   }
 
   /**
    * Evaluate the getter, and re-collect dependencies.
    */
   get () {
-    pushTarget(this)
     let value
     const vm = this.vm
-    try {
-      value = this.getter.call(vm, vm)
-    } catch (e) {
-      if (this.user) {
-        handleError(e, vm, `getter for watcher "${this.expression}"`)
-      } else {
-        throw e
+    if(this.noRe){
+      try {
+        value = this.getter.call(vm, vm)
+      } catch (e) {
+        if (this.user) {
+          handleError(e, vm, `getter for watcher "${this.expression}"`)
+        } else {
+          throw e
+        }
       }
-    } finally {
-      // "touch" every property so they are all tracked as
-      // dependencies for deep watching
-      if (this.deep) {
-        traverse(value)
+    }
+    else{
+      pushTarget(this)
+      try {
+        value = this.getter.call(vm, vm)
+      } catch (e) {
+        if (this.user) {
+          handleError(e, vm, `getter for watcher "${this.expression}"`)
+        } else {
+          throw e
+        }
+      } finally {
+        // "touch" every property so they are all tracked as
+        // dependencies for deep watching
+        if (this.deep) {
+          traverse(value)
+        }
+        popTarget()
+        this.cleanupDeps()
       }
-      popTarget()
-      this.cleanupDeps()
     }
     return value
   }
@@ -210,6 +228,7 @@ export default class Watcher {
   evaluate () {
     this.value = this.get()
     this.dirty = false
+    if(this.noRe===false) this.noRe = true // accomodate 1st "lazy" evaluation
   }
 
   /**
