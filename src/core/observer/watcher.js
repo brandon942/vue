@@ -91,7 +91,7 @@ export default class Watcher {
         )
       }
       else{
-        if(expOrFn.indexOf(".") < 0) this.noRe = false // fixed dependency
+        if(expOrFn.indexOf(".") < 0 && !(expOrFn in vm.$data)) this.noRe = false // fixed dependency
       }
     }
     if(!this.lazy){
